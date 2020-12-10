@@ -45,6 +45,9 @@ class Polynomial
     friend struct detail::PolyMaker;
 
   public:
+  
+    const auto &coeffs() const noexcept { return m_coeffs; }
+    static constexpr auto num_terms = sizeof...(Ps);
 };
 
 namespace detail
@@ -104,7 +107,7 @@ constexpr auto collect_coeffs(
     std::integral_constant<std::size_t, FinalSize>) noexcept
 {
     std::array<T, FinalSize> final_coeffs{0};
-    for (int i = 0; i < Size; ++i)
+    for (unsigned i = 0; i < Size; ++i)
     {
         final_coeffs[mapped_indices[i]] += coeffs[i];
     }
@@ -137,7 +140,7 @@ constexpr auto make_poly(const C &coeffs, PowersList<Ps...>) noexcept
 {
     static_assert(std::tuple_size_v<C> == sizeof...(Ps));
     constexpr auto final_powers = remove_dupes(sort(PowersList<Ps...>{}));
-    constexpr auto mapped_indices = map_indices(PowersList<Ps...>{}, final_powers);
+    constexpr auto mapped_indices = detail::map_indices(PowersList<Ps...>{}, final_powers);
 
     return detail::PolyMaker::create(
         detail::collect_coeffs(

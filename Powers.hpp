@@ -41,6 +41,12 @@ struct Powers
     static constexpr std::size_t size = sizeof...(Ps);
 };
 
+template <unsigned... Ps, unsigned... Qs>
+constexpr bool operator==(Powers<Ps...>, Powers<Qs...>) noexcept
+{
+    return std::is_same_v<Powers<Ps...>, Powers<Qs...>>;
+}
+
 template <unsigned... P1s, unsigned... P2s>
 constexpr bool operator<(Powers<P1s...>, Powers<P2s...>) noexcept
 {
@@ -59,7 +65,7 @@ constexpr bool operator<(Powers<P1s...>, Powers<P2s...>) noexcept
     {
         constexpr unsigned terms1[sizeof...(P1s)] = { P1s... };
         constexpr unsigned terms2[sizeof...(P1s)] = { P2s... };
-        for (int i = 0; i < sizeof...(P1s); ++i)
+        for (unsigned i = 0; i < sizeof...(P1s); ++i)
         {
             if (terms1[i] < terms2[i])
             {
@@ -200,7 +206,7 @@ namespace detail
         {
             return t;
         }
-        else if (std::get<0>(t) == std::get<1>(t))
+        else if constexpr (std::get<0>(t) == std::get<1>(t))
         {
             return remove_dupe_impl(std::tuple_cat(std::tuple(std::get<0>(t)), tuple_tail(t)));
         }
