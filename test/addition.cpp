@@ -54,3 +54,21 @@ TEST_CASE("Add two single-variable polynomials with different powers")
     REQUIRE(result.coeffs()[4] == 7);
     REQUIRE(result.coeffs()[5] == 8);
 }
+
+TEST_CASE("Add two muli-variable polynomials with different powers")
+{
+    constexpr auto coeffs1 = std::tuple(2, -3, 1);
+    constexpr auto coeffs2 = std::tuple(3, 4);
+    constexpr auto powers1 = PowersList<Powers<1, 0>, Powers<1, 1>, Powers<0, 1>>{};
+    constexpr auto powers2 = PowersList<Powers<0, 1>, Powers<2, 0>>{};
+
+    constexpr auto poly1 = make_poly(coeffs1, powers1);
+    constexpr auto poly2 = make_poly(coeffs2, powers2);
+
+    constexpr auto result = poly1 + poly2;
+    REQUIRE(result.num_terms == 4);
+    REQUIRE(result.coeffs()[0] == 4);
+    REQUIRE(result.coeffs()[1] == 2);
+    REQUIRE(result.coeffs()[2] == -3);
+    REQUIRE(result.coeffs()[3] == 4);
+}
