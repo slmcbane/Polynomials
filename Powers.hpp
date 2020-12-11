@@ -132,7 +132,7 @@ template <class P>
 struct sorted<P> : public std::true_type {};
 
 template <class P1, class P2, class... Ps>
-struct sorted<P1, P2, Ps...> : public std::bool_constant<!(P2{} < P1{}) && sorted<Ps...>::value> {};
+struct sorted<P1, P2, Ps...> : public std::bool_constant<!(P2{} < P1{}) && sorted<P2, Ps...>::value> {};
 
 template <std::size_t... Is, class... Ps>
 constexpr auto tuple_tail(std::index_sequence<Is...>, std::tuple<Ps...>)
@@ -233,6 +233,5 @@ constexpr auto remove_dupes(PowersList<Ps...>) noexcept
 }
 
 } // namespace Polynomials
-
 
 #endif // POLYNOMIAL_POWERS_HPP

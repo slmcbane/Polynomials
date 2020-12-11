@@ -45,9 +45,27 @@ class Polynomial
     friend struct detail::PolyMaker;
 
   public:
-  
-    const auto &coeffs() const noexcept { return m_coeffs; }
+    constexpr const auto &coeffs() const noexcept { return m_coeffs; }
     static constexpr auto num_terms = sizeof...(Ps);
+
+    constexpr Polynomial<T, Ps...> operator+(const Polynomial<T, Ps...> &other) const noexcept
+    {
+        Polynomial<T, Ps...> result;
+        for (unsigned i = 0; i < sizeof...(Ps); ++i)
+        {
+            result.m_coeffs[i] = m_coeffs[i] + other.m_coeffs[i];
+        }
+        return result;
+    }
+
+    constexpr Polynomial<T, Ps...> &operator+=(const Polynomial<T, Ps...> &other) noexcept
+    {
+        for (unsigned i = 0; i < sizeof...(Ps); ++i)
+        {
+            m_coeffs[i] += other.m_coeffs[i];
+        }
+        return *this;
+    }
 };
 
 namespace detail
@@ -146,6 +164,22 @@ constexpr auto make_poly(const C &coeffs, PowersList<Ps...>) noexcept
         detail::collect_coeffs(
             coeffs, mapped_indices, std::integral_constant<std::size_t, final_powers.size>{}),
         final_powers);
+}
+
+template <class T, class... Ps, class U, class... Qs>
+constexpr auto operator+(const Polynomial<T, Ps...> &p, const Polynomial<U, Qs...> &q) noexcept
+{
+    using V = std::common_type_t<T, U>;
+    std::array<V, sizeof...(Ps) + sizeof...(Qs)> coeffs{ 0 };
+    for (unsigned i = 0; i < sizeof...(Ps); ++i)
+    {
+        coeffs[i] = p.coeffs()[i];
+    }
+    for (unsigned i = 0; i < sizeof...(Qs); ++i)
+    {
+        coeffs[i + p.num_terms] = q.coeffs()[i];
+    }
+    return make_poly(coeffs, PowersList<Ps..., Qs...>{});
 }
 
 } // namespace Polynomials
