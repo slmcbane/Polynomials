@@ -26,6 +26,14 @@ constexpr std::array<T, sizeof...(Ts)> to_array(const std::tuple<Ts...> &tup) no
 
 struct PolyMaker;
 
+template <std::size_t... Is, class... Xs, class... Ps, class T>
+constexpr T eval_impl(
+    const std::array<T, sizeof...(Is)> &coeffs, std::index_sequence<Is...>,
+    PowersList<Ps...>, const Xs &... xs) noexcept
+{
+    return ((raise(Ps{}, xs...) * coeffs[Is]) + ...);
+}
+
 } // namespace detail
 
 template <class T, class... Ps>
@@ -65,6 +73,13 @@ class Polynomial
             m_coeffs[i] += other.m_coeffs[i];
         }
         return *this;
+    }
+
+    template <class... Xs>
+    constexpr T operator()(const Xs &...xs) const noexcept
+    {
+        return detail::eval_impl(
+            m_coeffs, std::make_index_sequence<num_terms>(), PowersList<Ps...>{}, xs...);
     }
 };
 
@@ -170,7 +185,7 @@ template <class T, class... Ps, class U, class... Qs>
 constexpr auto operator+(const Polynomial<T, Ps...> &p, const Polynomial<U, Qs...> &q) noexcept
 {
     using V = std::common_type_t<T, U>;
-    std::array<V, sizeof...(Ps) + sizeof...(Qs)> coeffs{ 0 };
+    std::array<V, sizeof...(Ps) + sizeof...(Qs)> coeffs{0};
     for (unsigned i = 0; i < sizeof...(Ps); ++i)
     {
         coeffs[i] = p.coeffs()[i];

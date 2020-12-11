@@ -1,44 +1,26 @@
 #ifndef POLYNOMIAL_POWERS_HPP
 #define POLYNOMIAL_POWERS_HPP
 
+#include <array>
 #include <tuple>
 #include <type_traits>
+#include <utility>
 
 namespace Polynomials
 {
-
-namespace detail
-{
-
-template <class T, T... Xs>
-struct sum_impl
-{
-    static constexpr T terms[] = { Xs... };
-    static constexpr auto sum() noexcept
-    {
-        T total = 0;
-        for (T x : terms)
-        {
-            total += x;
-        }
-        return total;
-    }
-};
-
-} // namespace detail
 
 template <unsigned... Ps>
 struct Powers
 {
     constexpr Powers() noexcept {}
-    constexpr static auto sum = detail::sum_impl<unsigned, Ps...>::sum();
+    constexpr static auto sum = (Ps + ...);
 
-    static constexpr unsigned terms[sizeof...(Ps)] = { Ps... };
+    static constexpr std::array<unsigned, sizeof...(Ps)> terms{ Ps... };
 
     template <int which>
     constexpr static unsigned term = terms[which];
 
-    static constexpr std::size_t size = sizeof...(Ps);
+    static constexpr std::size_t nvars = sizeof...(Ps);
 };
 
 template <unsigned... Ps, unsigned... Qs>
@@ -120,7 +102,7 @@ template <class P>
 struct all_same_size<P> : public std::true_type {};
 
 template <class P, class Q, class... Ps>
-struct all_same_size<P, Q, Ps...> : public std::bool_constant<P::size == Q::size && all_same_size<Ps...>::value> {};
+struct all_same_size<P, Q, Ps...> : public std::bool_constant<P::nvars == Q::nvars && all_same_size<Ps...>::value> {};
 
 template <class... Ps>
 struct sorted;
@@ -186,6 +168,7 @@ struct PowersList
     static_assert(detail::all_same_size<Ps...>::value, "All Powers in PowersList should have same order (number of variables)");
     constexpr static auto size = sizeof...(Ps);
     static constexpr std::tuple<Ps...> terms { Ps{}... };
+    static constexpr std::size_t nvars = std::get<0>(terms).nvars;
 
     template <int which>
     static constexpr auto term = std::get<which>(terms);
@@ -230,6 +213,54 @@ template <class... Ps>
 constexpr auto remove_dupes(PowersList<Ps...>) noexcept
 {
     return detail::list_from_tuple(detail::remove_dupe_impl(std::tuple(Ps{}...)));
+}
+
+template <unsigned P, class T>
+constexpr T raise(T x) noexcept
+{
+    if constexpr (P == 0)
+    {
+        return 1;
+    }
+    else if constexpr (P == 1)
+    {
+        return x;
+    }
+    else
+    {
+        constexpr unsigned first_power = P / 2;
+        constexpr unsigned second_power = P - first_power;
+        return raise<first_power>(x) * raise<second_power>(x);
+    }
+}
+
+namespace detail
+{
+
+template <class Tup, unsigned... Ps, std::size_t... Is>
+constexpr auto raise_tuple_impl(const Tup &xs, Powers<Ps...>, std::index_sequence<Is...>) noexcept
+{
+    return (raise<Ps>(std::get<Is>(xs)) * ...);
+}
+
+}
+
+template <class T, unsigned... Ps>
+constexpr auto raise(Powers<Ps...>, const std::array<T, sizeof...(Ps)> &xs) noexcept
+{
+    return detail::raise_tuple_impl(xs, Powers<Ps...>{}, std::make_index_sequence<sizeof...(Ps)>());
+}
+
+template <class... Ts, unsigned... Ps>
+constexpr auto raise(Powers<Ps...>, const std::tuple<Ts...> &xs) noexcept
+{
+    return detail::raise_tuple_impl(xs, Powers<Ps...>{}, std::make_index_sequence<sizeof...(Ps)>());
+}
+
+template <class... Ts, unsigned... Ps>
+constexpr auto raise(Powers<Ps...>, Ts... xs) noexcept
+{
+    return (raise<Ps>(xs) * ...);
 }
 
 } // namespace Polynomials
