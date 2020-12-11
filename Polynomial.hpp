@@ -197,6 +197,22 @@ constexpr auto operator+(const Polynomial<T, Ps...> &p, const Polynomial<U, Qs..
     return make_poly(coeffs, PowersList<Ps..., Qs...>{});
 }
 
+template <class T, class... Ps, class U, class... Qs>
+constexpr auto operator*(const Polynomial<T, Ps...> &p, const Polynomial<U, Qs...> &q) noexcept
+{
+    using V = decltype(std::declval<T>() * std::declval<U>());
+    std::array<V, sizeof...(Ps) * sizeof...(Qs)> coeffs{0};
+    for (unsigned i = 0; i < sizeof...(Ps); ++i)
+    {
+        for (unsigned j = 0; j < sizeof...(Qs); ++j)
+        {
+            coeffs[i * sizeof...(Qs) + j] = p.coeffs()[i] * q.coeffs()[j];
+        }
+    }
+
+    return make_poly(coeffs, PowersList<Ps...>{} * PowersList<Qs...>{});
+}
+
 } // namespace Polynomials
 
 #endif // POLYNOMIAL_POLYNOMIAL_HPP

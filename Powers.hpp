@@ -21,6 +21,13 @@ struct Powers
     constexpr static unsigned term = terms[which];
 
     static constexpr std::size_t nvars = sizeof...(Ps);
+
+    template <unsigned... Qs>
+    constexpr auto operator*(Powers<Qs...>) const noexcept
+    {
+        static_assert(sizeof...(Ps) == sizeof...(Qs));
+        return Powers<(Ps+Qs)...>{};
+    }
 };
 
 template <unsigned... Ps, unsigned... Qs>
@@ -172,6 +179,12 @@ struct PowersList
 
     template <int which>
     static constexpr auto term = std::get<which>(terms);
+
+    template <class... Qs>
+    constexpr auto operator+(PowersList<Qs...>) const noexcept
+    {
+        return PowersList<Ps..., Qs...>{};
+    }
 };
 
 namespace detail
@@ -261,6 +274,18 @@ template <class... Ts, unsigned... Ps>
 constexpr auto raise(Powers<Ps...>, Ts... xs) noexcept
 {
     return (raise<Ps>(xs) * ...);
+}
+
+template <unsigned... Ps, class... Qs>
+constexpr auto operator*(Powers<Ps...>, PowersList<Qs...>) noexcept
+{
+    return PowersList<decltype(Powers<Ps...>{} * Qs{})...>{};
+}
+
+template <class... Ps, class... Qs>
+constexpr auto operator*(PowersList<Ps...>, PowersList<Qs...>) noexcept
+{
+    return ((Ps{} * PowersList<Qs...>{}) + ...);
 }
 
 } // namespace Polynomials
