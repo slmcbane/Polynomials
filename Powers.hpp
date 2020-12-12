@@ -169,18 +169,13 @@ struct PowersList
     {
         return PowersList<Ps..., Qs...>{};
     }
+
+    template <std::size_t which>
+    static constexpr auto term()
+    {
+        return std::tuple_element_t<which, std::tuple<Ps...>>{};
+    }
 };
-
-namespace detail
-{
-
-template <class... Ps>
-constexpr PowersList<Ps...> list_from_tuple(std::tuple<Ps...>) noexcept
-{
-    return PowersList<Ps...>{};
-}
-
-} // namespace detail
 
 template <unsigned P, class T>
 constexpr T raise(T x) noexcept
@@ -392,10 +387,7 @@ constexpr std::size_t get_power_index(PowersList<Ps...>) noexcept
 template <std::size_t... Is, class... Ps>
 constexpr auto get_final_powers_impl(std::index_sequence<Is...>, PowersList<Ps...>) noexcept
 {
-    constexpr auto powers = std::tuple(Ps{}...);
-    return list_from_tuple(
-        std::tuple(std::get<get_power_index<Is>(PowersList<Ps...>{})>(powers)...)
-    );
+    return PowersList<std::decay_t<decltype(PowersList<Ps...>::template term<get_power_index<Is>(PowersList<Ps...>{})>())>...>{};
 }
 
 template <class... Ps>
@@ -411,7 +403,8 @@ constexpr auto get_final_powers(PowersList<Ps...>) noexcept
 template <class... Ps>
 constexpr auto unique_and_sorted(PowersList<Ps...>)
 {
-    constexpr auto final_indices = std::index_sequence<detail::map_power<Ps>(detail::UniqueAndSorted<Ps...>::value)...>{};
+    constexpr auto final_indices =
+        std::index_sequence<detail::map_power<Ps>(detail::UniqueAndSorted<Ps...>::value)...>{};
     constexpr auto final_powers = detail::get_final_powers(PowersList<Ps...>{});
     return std::make_pair(final_indices, final_powers);
 }
