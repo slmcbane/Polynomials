@@ -162,11 +162,7 @@ struct PowersList
         detail::all_same_size<Ps...>::value,
         "All Powers in PowersList should have same order (number of variables)");
     constexpr static auto size = sizeof...(Ps);
-    static constexpr std::tuple<Ps...> terms{Ps{}...};
-    static constexpr std::size_t nvars = std::get<0>(terms).nvars;
-
-    template <int which>
-    static constexpr auto term = std::get<which>(terms);
+    static constexpr std::size_t nvars = std::tuple_element_t<0, std::tuple<Ps...>>::nvars;
 
     template <class... Qs>
     constexpr auto operator+(PowersList<Qs...>) const noexcept
