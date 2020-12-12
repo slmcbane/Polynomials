@@ -1,3 +1,22 @@
+/*
+Copyright 2020 Sean McBane
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software
+and associated documentation files (the "Software"), to deal in the Software without restriction,
+including without limitation the rights to use, copy, modify, merge, publish, distribute,
+sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or
+substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING
+BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES
+OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+*/
+
 #ifndef POLYNOMIAL_POLYNOMIAL_HPP
 #define POLYNOMIAL_POLYNOMIAL_HPP
 
@@ -28,8 +47,8 @@ struct PolyMaker;
 
 template <std::size_t... Is, class... Xs, class... Ps, class T>
 constexpr T eval_impl(
-    const std::array<T, sizeof...(Is)> &coeffs, std::index_sequence<Is...>,
-    PowersList<Ps...>, const Xs &... xs) noexcept
+    const std::array<T, sizeof...(Is)> &coeffs, std::index_sequence<Is...>, PowersList<Ps...>,
+    const Xs &...xs) noexcept
 {
     return ((raise(Ps{}, xs...) * coeffs[Is]) + ...);
 }
@@ -105,65 +124,42 @@ struct PolyMaker
     }
 };
 
-template <class P, class Q, class... Qs>
-constexpr std::size_t map_index(P, std::tuple<Q, Qs...>) noexcept
+template <std::size_t FinalSize, class T, std::size_t... Is, std::size_t... Js>
+constexpr auto collect_coeffs_impl(
+    const std::array<T, sizeof...(Is)> &coeffs, std::index_sequence<Is...>,
+    std::index_sequence<Js...>) noexcept
 {
-    if constexpr (std::is_same_v<P, Q>)
-    {
-        return 0;
-    }
-    else
-    {
-        return 1 + map_index(P{}, std::tuple<Qs...>{});
-    }
+    std::array<T, FinalSize> collected{0};
+    ((collected[Js] += coeffs[Is]), ...);
+    return collected;
 }
 
-template <std::size_t... Is, class... Ps, class... Qs>
-constexpr std::array<std::size_t, sizeof...(Ps)>
-    map_indices(std::index_sequence<Is...>, PowersList<Ps...>, PowersList<Qs...>) noexcept
-{
-    constexpr auto ps = std::tuple(Ps{}...);
-    constexpr auto qs = std::tuple(Qs{}...);
-    return std::array<std::size_t, sizeof...(Ps)>{map_index(std::get<Is>(ps), qs)...};
-}
-
-template <class... Ps, class... Qs>
-constexpr std::array<std::size_t, sizeof...(Ps)> map_indices(PowersList<Ps...>, PowersList<Qs...>) noexcept
-{
-    constexpr auto seq = std::make_index_sequence<sizeof...(Ps)>();
-    return map_indices(seq, PowersList<Ps...>{}, PowersList<Qs...>{});
-}
-
-template <class T, std::size_t Size, std::size_t FinalSize>
+template <class T, std::size_t... Is, std::size_t FinalSize>
 constexpr auto collect_coeffs(
-    const std::array<T, Size> &coeffs, const std::array<std::size_t, Size> &mapped_indices,
+    const std::array<T, sizeof...(Is)> &coeffs, std::index_sequence<Is...> mapped_indices,
     std::integral_constant<std::size_t, FinalSize>) noexcept
 {
-    std::array<T, FinalSize> final_coeffs{0};
-    for (unsigned i = 0; i < Size; ++i)
-    {
-        final_coeffs[mapped_indices[i]] += coeffs[i];
-    }
-
-    return final_coeffs;
+    return collect_coeffs_impl<FinalSize>(
+        coeffs, std::make_index_sequence<sizeof...(Is)>(), mapped_indices);
 }
 
-template <class... Ts, std::size_t... Is>
-constexpr auto to_array_impl(const std::tuple<Ts...> &t, std::index_sequence<Is...>) noexcept
+template <std::size_t FinalSize, class... Ts, std::size_t... Is, std::size_t... Js>
+constexpr auto collect_coeffs_impl(
+    const std::tuple<Ts...> &coeffs, std::index_sequence<Is...>, std::index_sequence<Js...>) noexcept
+{
+    std::array<std::common_type_t<Ts...>, FinalSize> collected{0};
+    ((collected[Js] += std::get<Is>(coeffs)), ...);
+    return collected;
+}
+
+template <class... Ts, std::size_t... Is, std::size_t FinalSize>
+constexpr auto collect_coeffs(
+    const std::tuple<Ts...> &coeffs, std::index_sequence<Is...> mapped_indices,
+    std::integral_constant<std::size_t, FinalSize>) noexcept
 {
     static_assert(sizeof...(Ts) == sizeof...(Is));
-    using T = std::common_type_t<Ts...>;
-    return std::array<T, sizeof...(Ts)>{std::get<Is>(t)...};
-}
-
-template <class... Ts, std::size_t FinalSize>
-constexpr auto collect_coeffs(
-    const std::tuple<Ts...> &coeffs, const std::array<std::size_t, sizeof...(Ts)> &mapped_indices,
-    std::integral_constant<std::size_t, FinalSize>) noexcept
-{
-    return collect_coeffs(
-        to_array_impl(coeffs, std::make_index_sequence<sizeof...(Ts)>()), mapped_indices,
-        std::integral_constant<std::size_t, FinalSize>{});
+    return collect_coeffs_impl<FinalSize>(
+        coeffs, std::make_index_sequence<sizeof...(Ts)>(), mapped_indices);
 }
 
 } // namespace detail
@@ -172,8 +168,9 @@ template <class C, class... Ps>
 constexpr auto make_poly(const C &coeffs, PowersList<Ps...>) noexcept
 {
     static_assert(std::tuple_size_v<C> == sizeof...(Ps));
-    constexpr auto final_powers = remove_dupes(sort(PowersList<Ps...>{}));
-    constexpr auto mapped_indices = detail::map_indices(PowersList<Ps...>{}, final_powers);
+    constexpr auto inds_and_powers = unique_and_sorted(PowersList<Ps...>{});
+    constexpr auto mapped_indices = inds_and_powers.first;
+    constexpr auto final_powers = inds_and_powers.second;
 
     return detail::PolyMaker::create(
         detail::collect_coeffs(

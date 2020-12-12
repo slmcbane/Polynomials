@@ -1,3 +1,22 @@
+/*
+Copyright 2020 Sean McBane
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software
+and associated documentation files (the "Software"), to deal in the Software without restriction,
+including without limitation the rights to use, copy, modify, merge, publish, distribute,
+sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or
+substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING
+BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES
+OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+*/
+
 #ifndef POLYNOMIAL_POWERS_HPP
 #define POLYNOMIAL_POWERS_HPP
 
@@ -15,7 +34,7 @@ struct Powers
     constexpr Powers() noexcept {}
     constexpr static auto sum = (Ps + ...);
 
-    static constexpr std::array<unsigned, sizeof...(Ps)> terms{ Ps... };
+    static constexpr std::array<unsigned, sizeof...(Ps)> terms{Ps...};
 
     template <int which>
     constexpr static unsigned term = terms[which];
@@ -26,7 +45,7 @@ struct Powers
     constexpr auto operator*(Powers<Qs...>) const noexcept
     {
         static_assert(sizeof...(Ps) == sizeof...(Qs));
-        return Powers<(Ps+Qs)...>{};
+        return Powers<(Ps + Qs)...>{};
     }
 };
 
@@ -39,7 +58,9 @@ constexpr bool operator==(Powers<Ps...>, Powers<Qs...>) noexcept
 template <unsigned... P1s, unsigned... P2s>
 constexpr bool operator<(Powers<P1s...>, Powers<P2s...>) noexcept
 {
-    static_assert(sizeof...(P1s) == sizeof...(P2s), "Comparison of Powers types only meaningful if they are the same size");
+    static_assert(
+        sizeof...(P1s) == sizeof...(P2s),
+        "Comparison of Powers types only meaningful if they are the same size");
     using Ps1 = Powers<P1s...>;
     using Ps2 = Powers<P2s...>;
     if constexpr (Ps1::sum < Ps2::sum)
@@ -52,8 +73,8 @@ constexpr bool operator<(Powers<P1s...>, Powers<P2s...>) noexcept
     }
     else
     {
-        constexpr unsigned terms1[sizeof...(P1s)] = { P1s... };
-        constexpr unsigned terms2[sizeof...(P1s)] = { P2s... };
+        constexpr unsigned terms1[sizeof...(P1s)] = {P1s...};
+        constexpr unsigned terms2[sizeof...(P1s)] = {P2s...};
         for (unsigned i = 0; i < sizeof...(P1s); ++i)
         {
             if (terms1[i] < terms2[i])
@@ -103,78 +124,45 @@ template <class... Ps>
 struct all_same_size;
 
 template <>
-struct all_same_size<> : public std::true_type {};
+struct all_same_size<> : public std::true_type
+{
+};
 
 template <class P>
-struct all_same_size<P> : public std::true_type {};
+struct all_same_size<P> : public std::true_type
+{
+};
 
 template <class P, class Q, class... Ps>
-struct all_same_size<P, Q, Ps...> : public std::bool_constant<P::nvars == Q::nvars && all_same_size<Ps...>::value> {};
-
-template <class... Ps>
-struct sorted;
-
-template <>
-struct sorted<> : public std::true_type {};
-
-template <class P>
-struct sorted<P> : public std::true_type {};
-
-template <class P1, class P2, class... Ps>
-struct sorted<P1, P2, Ps...> : public std::bool_constant<!(P2{} < P1{}) && sorted<P2, Ps...>::value> {};
+struct all_same_size<P, Q, Ps...>
+    : public std::bool_constant<P::nvars == Q::nvars && all_same_size<Ps...>::value>
+{
+};
 
 template <std::size_t... Is, class... Ps>
 constexpr auto tuple_tail(std::index_sequence<Is...>, std::tuple<Ps...>)
 {
-    return std::tuple{ std::get<Is+2>(std::tuple{Ps{}...})... };
+    return std::tuple{std::get<Is + 2>(std::tuple{Ps{}...})...};
 }
 
 template <class... Ps>
 constexpr auto tuple_tail(std::tuple<Ps...>)
 {
-    constexpr auto Is = std::make_index_sequence<sizeof...(Ps)-2>();
+    constexpr auto Is = std::make_index_sequence<sizeof...(Ps) - 2>();
     return tuple_tail(Is, std::tuple{Ps{}...});
 }
 
-template <class... Ps>
-constexpr auto do_sort(std::tuple<Ps...>) noexcept
-{
-    if constexpr (sorted<Ps...>::value)
-    {
-        return std::tuple{Ps{}...};
-    }
-    else
-    {
-        constexpr std::tuple<Ps...> terms{ Ps{}... };
-        if constexpr (std::get<1>(terms) < std::get<0>(terms))
-        {
-            return do_sort(std::tuple_cat(std::tuple{std::get<1>(terms)}, 
-                do_sort(std::tuple_cat(std::tuple{std::get<0>(terms)}, do_sort(tuple_tail(std::tuple{Ps{}...}))))));
-        }
-        else
-        {
-            return do_sort(std::tuple_cat(std::tuple{std::get<0>(terms)},
-                do_sort(std::tuple_cat(std::tuple{std::get<1>(terms)}, do_sort(tuple_tail(std::tuple{Ps{}...}))))));
-        }
-    }
-}
-
-template <class... Ps>
-struct powers_sorter
-{
-    static constexpr auto value = do_sort(std::tuple{Ps{}...});
-};
-
 } // namespace detail
-
 
 template <class... Ps>
 struct PowersList
 {
     static_assert(detail::all_are_powers<Ps...>::value, "PowersList can only contain Powers objects");
-    static_assert(detail::all_same_size<Ps...>::value, "All Powers in PowersList should have same order (number of variables)");
+    static_assert(
+        detail::all_same_size<Ps...>::value,
+        "All Powers in PowersList should have same order (number of variables)");
     constexpr static auto size = sizeof...(Ps);
-    static constexpr std::tuple<Ps...> terms { Ps{}... };
+    static constexpr std::tuple<Ps...> terms{Ps{}...};
     static constexpr std::size_t nvars = std::get<0>(terms).nvars;
 
     template <int which>
@@ -189,44 +177,14 @@ struct PowersList
 
 namespace detail
 {
-    template <class... Ps>
-    constexpr PowersList<Ps...> list_from_tuple(std::tuple<Ps...>) noexcept
-    {
-        return PowersList<Ps...>{};
-    }
 
-    template <class... Ps>
-    constexpr auto remove_dupe_impl(std::tuple<Ps...> t) noexcept
-    {
-        if constexpr (sizeof...(Ps) < 2)
-        {
-            return t;
-        }
-        else if constexpr (std::get<0>(t) == std::get<1>(t))
-        {
-            return remove_dupe_impl(std::tuple_cat(std::tuple(std::get<0>(t)), tuple_tail(t)));
-        }
-        else
-        {
-            return std::tuple_cat(
-                std::tuple(std::get<0>(t)),
-                remove_dupe_impl(std::tuple_cat(std::tuple(std::get<1>(t)), tuple_tail(t)))
-            );
-        }
-    }
+template <class... Ps>
+constexpr PowersList<Ps...> list_from_tuple(std::tuple<Ps...>) noexcept
+{
+    return PowersList<Ps...>{};
+}
+
 } // namespace detail
-
-template <class... Ps>
-constexpr auto sort(PowersList<Ps...>) noexcept
-{
-    return detail::list_from_tuple(detail::do_sort(std::tuple{Ps{}...}));
-}
-
-template <class... Ps>
-constexpr auto remove_dupes(PowersList<Ps...>) noexcept
-{
-    return detail::list_from_tuple(detail::remove_dupe_impl(std::tuple(Ps{}...)));
-}
 
 template <unsigned P, class T>
 constexpr T raise(T x) noexcept
@@ -256,7 +214,7 @@ constexpr auto raise_tuple_impl(const Tup &xs, Powers<Ps...>, std::index_sequenc
     return (raise<Ps>(std::get<Is>(xs)) * ...);
 }
 
-}
+} // namespace detail
 
 template <class T, unsigned... Ps>
 constexpr auto raise(Powers<Ps...>, const std::array<T, sizeof...(Ps)> &xs) noexcept
@@ -286,6 +244,180 @@ template <class... Ps, class... Qs>
 constexpr auto operator*(PowersList<Ps...>, PowersList<Qs...>) noexcept
 {
     return ((Ps{} * PowersList<Qs...>{}) + ...);
+}
+
+namespace detail
+{
+
+template <unsigned... Ps>
+constexpr auto to_array(Powers<Ps...>) noexcept
+{
+    return std::array<unsigned, sizeof...(Ps)>{Ps...};
+}
+
+template <class... Ps>
+constexpr auto expand_powers(Ps...) noexcept
+{
+    return std::array{to_array(Ps{})...};
+}
+
+template <std::size_t N, std::size_t... Is>
+constexpr bool compare_arrays_impl(
+    const std::array<unsigned, N> &a, const std::array<unsigned, N> &b, std::index_sequence<Is...>) noexcept
+{
+    return ((a[Is] == b[Is]) && ...);
+}
+
+template <std::size_t N>
+constexpr bool compare_arrays(const std::array<unsigned, N> &a, const std::array<unsigned, N> &b) noexcept
+{
+    return compare_arrays_impl(a, b, std::make_index_sequence<N>());
+}
+
+template <std::size_t N>
+constexpr bool array_less_than(const std::array<unsigned, N> &a, const std::array<unsigned, N> &b) noexcept
+{
+    for (std::size_t i = 0; i < N; ++i)
+    {
+        if (a[i] > b[i])
+        {
+            return false;
+        }
+        else if (a[i] < b[i])
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+template <std::size_t n, std::size_t sz>
+constexpr auto sort_array(const std::array<std::array<unsigned, n>, sz> &a) noexcept
+{
+    std::array<std::array<unsigned, n>, sz> cp = a;
+
+    constexpr auto sorting_pass = [](auto &arr) {
+        if (arr.size() < 2)
+        {
+            return false;
+        }
+
+        bool modified = false;
+        for (auto it = arr.begin(); it != arr.end() - 1; ++it)
+        {
+            if (array_less_than(*(it + 1), *it))
+            {
+                auto tmp = *it;
+                *it = *(it + 1);
+                *(it + 1) = tmp;
+                modified = true;
+            }
+        }
+        return modified;
+    };
+
+    while (sorting_pass(cp))
+        ;
+    return cp;
+}
+
+template <class P, class A>
+constexpr std::size_t map_power(const A &arr) noexcept
+{
+    constexpr auto to_compare = to_array(P{});
+    for (std::size_t i = 0; i < arr.size(); ++i)
+    {
+        if (compare_arrays(to_compare, arr[i]))
+        {
+            return i;
+        }
+    }
+}
+
+template <std::size_t N, std::size_t Sz>
+constexpr std::size_t num_unique_powers(const std::array<std::array<unsigned, N>, Sz> &arr) noexcept
+{
+    // Input array is already sorted.
+    std::size_t count = 0;
+    std::size_t index = 0;
+    while (index < Sz)
+    {
+        count += 1;
+        const auto val = arr[index];
+        do
+        {
+            index += 1;
+        } while (index < Sz && compare_arrays(arr[index], val));
+    }
+    return count;
+}
+
+template <std::size_t FinalSize, std::size_t N, std::size_t Sz>
+constexpr std::array<std::array<unsigned, N>, FinalSize>
+get_unique_array(const std::array<std::array<unsigned, N>, Sz> &arr) noexcept
+{
+    std::array<std::array<unsigned, N>, FinalSize> result{0};
+    std::size_t index = 0;
+    std::size_t count = 0;
+    while (index < Sz)
+    {
+        result[count++] = arr[index];
+        const auto val = arr[index];
+        do
+        {
+            index += 1;
+        } while (index < Sz && compare_arrays(arr[index], val));
+    }
+    return result;
+}
+
+template <class... Ps>
+struct UniqueAndSorted
+{
+    static constexpr auto sorted_array = sort_array(expand_powers(Ps{}...));
+    static constexpr auto value = get_unique_array<num_unique_powers(sorted_array)>(sorted_array);
+    static constexpr auto size = value.size();
+};
+
+template <std::size_t i, class... Ps>
+constexpr std::size_t get_power_index(PowersList<Ps...>) noexcept
+{
+    static_assert(i < UniqueAndSorted<Ps...>::size);
+    constexpr auto expanded = expand_powers(Ps{}...);
+    for (std::size_t j = 0; j < sizeof...(Ps); ++j)
+    {
+        if (compare_arrays(UniqueAndSorted<Ps...>::value[i], expanded[j]))
+        {
+            return j;
+        }
+    }
+}
+
+template <std::size_t... Is, class... Ps>
+constexpr auto get_final_powers_impl(std::index_sequence<Is...>, PowersList<Ps...>) noexcept
+{
+    constexpr auto powers = std::tuple(Ps{}...);
+    return list_from_tuple(
+        std::tuple(std::get<get_power_index<Is>(PowersList<Ps...>{})>(powers)...)
+    );
+}
+
+template <class... Ps>
+constexpr auto get_final_powers(PowersList<Ps...>) noexcept
+{
+    constexpr std::size_t num_unique = UniqueAndSorted<Ps...>::value.size();
+    constexpr auto helper_seq = std::make_index_sequence<num_unique>();
+    return get_final_powers_impl(helper_seq, PowersList<Ps...>{});
+}
+
+} // namespace detail
+
+template <class... Ps>
+constexpr auto unique_and_sorted(PowersList<Ps...>)
+{
+    constexpr auto final_indices = std::index_sequence<detail::map_power<Ps>(detail::UniqueAndSorted<Ps...>::value)...>{};
+    constexpr auto final_powers = detail::get_final_powers(PowersList<Ps...>{});
+    return std::make_pair(final_indices, final_powers);
 }
 
 } // namespace Polynomials
