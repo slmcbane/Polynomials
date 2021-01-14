@@ -409,6 +409,93 @@ constexpr auto unique_and_sorted(PowersList<Ps...>)
     return std::make_pair(final_indices, final_powers);
 }
 
+namespace detail
+{
+
+template <std::size_t... Is, std::size_t... Js>
+constexpr std::index_sequence<Is..., Js...> concatenate(std::index_sequence<Is...>, std::index_sequence<Js...>) noexcept
+{
+    return std::index_sequence<Is..., Js...>{};
+}
+
+template <std::size_t... Is>
+constexpr std::index_sequence<(Is+1)...> add1to(std::index_sequence<Is...>) noexcept
+{
+    return std::index_sequence<(Is+1)...>{};
+}
+
+template <std::size_t I, class... Ps>
+struct FilterZeroPowers;
+
+template <std::size_t I>
+struct FilterZeroPowers<I>
+{
+    typedef std::index_sequence<> seq_type;
+    typedef PowersList<> plist_type;
+};
+
+template <std::size_t I, class P, class... Ps>
+struct FilterZeroPowers<I, P, Ps...>
+{
+    typedef typename FilterZeroPowers<I, Ps...>::seq_type subseq_type;
+    typedef typename FilterZeroPowers<I, Ps...>::plist_type sublist_type;
+
+    constexpr static auto compute() noexcept
+    {
+        if constexpr (to_array(P{})[I] == 0)
+        {
+            return std::make_pair(add1to(subseq_type{}), sublist_type{});
+        }
+        else
+        {
+            return std::make_pair(concatenate(std::index_sequence<0>{}, add1to(subseq_type{})),
+                PowersList<P>{} + sublist_type{});
+        }
+    }
+
+    typedef decltype(compute().first) seq_type;
+    typedef decltype(compute().second) plist_type;
+};
+
+template <std::size_t I, class... Ps>
+constexpr auto get_partial_constants() noexcept
+{
+    return std::integer_sequence<unsigned, to_array(Ps{})[I]...>{};
+}
+
+template <std::size_t I, std::size_t... Js, class Ps>
+constexpr auto apply_partial_impl(std::index_sequence<Js...>, Ps)
+{
+    return Powers<(Ps::terms[Js] - (Js == I))...>{};
+}
+
+template <std::size_t I, class Ps>
+constexpr auto apply_partial(Ps) noexcept
+{
+    constexpr auto helper_sequence = std::make_index_sequence<Ps::nvars>();
+    return apply_partial_impl<I>(helper_sequence, Ps{});
+}
+
+template <std::size_t I, class... Ps>
+constexpr auto do_partials(PowersList<Ps...>) noexcept
+{
+    constexpr auto constants = get_partial_constants<I, Ps...>();
+    constexpr PowersList<decltype(apply_partial<I>(Ps{}))...> powers{};
+    return std::make_pair(constants, powers);
+}
+
+} // namespace detail
+
+template <std::size_t I, class... Ps>
+constexpr auto partials_with_multipliers(PowersList<Ps...>)
+{
+    static_assert(I < sizeof...(Ps), "Partial derivative index out of bounds");
+    constexpr auto indices = typename detail::FilterZeroPowers<I, Ps...>::seq_type{};
+    constexpr auto filtered = typename detail::FilterZeroPowers<I, Ps...>::plist_type{};
+    constexpr auto constants_and_powers = detail::do_partials<I>(filtered);
+    return std::tuple(indices, constants_and_powers.first, constants_and_powers.second);
+}
+
 } // namespace Polynomials
 
 #endif // POLYNOMIAL_POWERS_HPP

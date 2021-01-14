@@ -49,7 +49,7 @@ struct PolyMaker;
 template <std::size_t... Is, class... Xs, class... Ps, class T>
 constexpr T eval_impl(
     const std::array<T, sizeof...(Is)> &coeffs, std::index_sequence<Is...>, PowersList<Ps...>,
-    const Xs &...xs) noexcept
+    const Xs &... xs) noexcept
 {
     return ((raise(Ps{}, xs...) * coeffs[Is]) + ...);
 }
@@ -100,8 +100,7 @@ class Polynomial
     }
 
     template <class U>
-    constexpr std::enable_if_t<std::is_arithmetic_v<U>, Polynomial<T, Ps...>>&
-    operator*=(U x)
+    constexpr std::enable_if_t<std::is_arithmetic_v<U>, Polynomial<T, Ps...>> &operator*=(U x)
     {
         for (unsigned i = 0; i < sizeof...(Ps); ++i)
         {
@@ -120,7 +119,7 @@ class Polynomial
     }
 
     template <class... Xs>
-    constexpr T operator()(const Xs &...xs) const noexcept
+    constexpr T operator()(const Xs &... xs) const noexcept
     {
         return detail::eval_impl(
             m_coeffs, std::make_index_sequence<num_terms>(), PowersList<Ps...>{}, xs...);
@@ -233,6 +232,30 @@ constexpr auto operator*(const Polynomial<T, Ps...> &p, const Polynomial<U, Qs..
     }
 
     return make_poly(coeffs, PowersList<Ps...>{} * PowersList<Qs...>{});
+}
+
+namespace detail
+{
+
+template <class T, std::size_t N, std::size_t... Is, unsigned... As, class... Ps>
+constexpr auto partial_impl(
+    const std::array<T, N> &coeffs, std::index_sequence<Is...>, std::integer_sequence<unsigned, As...>,
+    PowersList<Ps...>) noexcept
+{
+    const auto new_coeffs = std::array{(coeffs[Is] * As)...};
+    return make_poly(new_coeffs, PowersList<Ps...>{});
+}
+
+} // namespace detail
+
+template <std::size_t I, class T, class... Ps>
+constexpr auto partial(const Polynomial<T, Ps...> &p) noexcept
+{
+    constexpr auto tup = partials_with_multipliers<I>(PowersList<Ps...>{});
+    constexpr auto indices = std::get<0>(tup);
+    constexpr auto constants = std::get<1>(tup);
+    constexpr auto powers = std::get<2>(tup);
+    return detail::partial_impl(p.coeffs(), indices, constants, powers);
 }
 
 } // namespace Polynomials
