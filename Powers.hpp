@@ -178,7 +178,7 @@ struct PowersList
 };
 
 template <unsigned P, class T>
-constexpr T raise(T x) noexcept
+constexpr T raise([[maybe_unused]] T x) noexcept
 {
     if constexpr (P == 0)
     {

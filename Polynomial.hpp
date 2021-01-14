@@ -91,12 +91,12 @@ class Polynomial
     constexpr std::enable_if_t<std::is_arithmetic_v<U>, Polynomial<std::common_type_t<T, U>, Ps...>>
     operator*(U x) const noexcept
     {
-        Polynomial<std::common_type_t<T, U>, Ps...> result;
+        std::array<std::common_type_t<T, U>, sizeof...(Ps)> new_coeffs{0};
         for (unsigned i = 0; i < sizeof...(Ps); ++i)
         {
-            result.m_coeffs[i] = m_coeffs[i] * x;
+            new_coeffs[i] = m_coeffs[i] * x;
         }
-        return result;
+        return make_poly(new_coeffs, PowersList<Ps...>{});
     }
 
     template <class U>

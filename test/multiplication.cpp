@@ -43,3 +43,23 @@ TEST_CASE("A more complicated, multi-variable test case")
     REQUIRE(result.coeffs()[7] == 8);
     REQUIRE(result.coeffs()[8] == 3);
 }
+
+TEST_CASE("Scalar multiplication test")
+{
+    constexpr auto powers = PowersList<Powers<0, 0>, Powers<0, 1>, Powers<1, 0>, Powers<1, 1>>{};
+    constexpr auto coeffs1 = std::array<int, 4>{2, 1, 2, 3};
+    constexpr auto poly1 = make_poly(coeffs1, powers);
+    auto poly2 = poly1 * 1.5;
+
+    REQUIRE(poly2.coeffs()[0] == 3);
+    REQUIRE(poly2.coeffs()[1] == 1.5);
+    REQUIRE(poly2.coeffs()[2] == 3);
+    REQUIRE(poly2.coeffs()[3] == 4.5);
+
+    auto poly3 = poly1;
+    poly3 *= 1.5;
+    for (int i = 0; i < 4; ++i)
+    {
+        REQUIRE(poly3.coeffs()[i] == static_cast<int>(1.5) * poly3.coeffs()[i]);
+    }
+}
