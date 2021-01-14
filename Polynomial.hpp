@@ -49,7 +49,7 @@ struct PolyMaker;
 template <std::size_t... Is, class... Xs, class... Ps, class T>
 constexpr T eval_impl(
     const std::array<T, sizeof...(Is)> &coeffs, std::index_sequence<Is...>, PowersList<Ps...>,
-    const Xs &... xs) noexcept
+    const Xs &...xs) noexcept
 {
     return ((raise(Ps{}, xs...) * coeffs[Is]) + ...);
 }
@@ -72,6 +72,14 @@ class Polynomial
     }
 
     friend struct detail::PolyMaker;
+
+    template <std::size_t... Is, unsigned... As, class... Qs>
+    constexpr auto partial_impl(
+        std::index_sequence<Is...>, std::integer_sequence<unsigned, As...>, PowersList<Qs...>) const noexcept
+    {
+        const auto new_coeffs = std::array{(m_coeffs[Is] * As)...};
+        return make_poly(new_coeffs, PowersList<Qs...>{});
+    }
 
   public:
     constexpr const auto &coeffs() const noexcept { return m_coeffs; }
@@ -119,10 +127,20 @@ class Polynomial
     }
 
     template <class... Xs>
-    constexpr T operator()(const Xs &... xs) const noexcept
+    constexpr T operator()(const Xs &...xs) const noexcept
     {
         return detail::eval_impl(
             m_coeffs, std::make_index_sequence<num_terms>(), PowersList<Ps...>{}, xs...);
+    }
+
+    template <std::size_t I>
+    constexpr auto partial() const noexcept
+    {
+        constexpr auto tup = partials_with_multipliers<I>(PowersList<Ps...>{});
+        constexpr auto indices = std::get<0>(tup);
+        constexpr auto constants = std::get<1>(tup);
+        constexpr auto powers = std::get<2>(tup);
+        return partial_impl(indices, constants, powers);
     }
 };
 
@@ -148,19 +166,19 @@ struct PolyMaker
     }
 };
 
-template <std::size_t FinalSize, class T, std::size_t... Is, std::size_t... Js>
-constexpr auto collect_coeffs_impl(
-    const std::array<T, sizeof...(Is)> &coeffs, std::index_sequence<Is...>,
-    std::index_sequence<Js...>) noexcept
+template <std::size_t FinalSize, class C, std::size_t... Is, std::size_t... Js>
+constexpr auto
+collect_coeffs_impl(const C &coeffs, std::index_sequence<Is...>, std::index_sequence<Js...>) noexcept
 {
+    using T = std::decay_t<decltype(coeffs[0])>;
     std::array<T, FinalSize> collected{0};
     ((collected[Js] += coeffs[Is]), ...);
     return collected;
 }
 
-template <class T, std::size_t... Is, std::size_t FinalSize>
+template <class C, std::size_t... Is, std::size_t FinalSize>
 constexpr auto collect_coeffs(
-    const std::array<T, sizeof...(Is)> &coeffs, std::index_sequence<Is...> mapped_indices,
+    const C &coeffs, std::index_sequence<Is...> mapped_indices,
     std::integral_constant<std::size_t, FinalSize>) noexcept
 {
     return collect_coeffs_impl<FinalSize>(
@@ -186,12 +204,32 @@ constexpr auto collect_coeffs(
         coeffs, std::make_index_sequence<sizeof...(Ts)>(), mapped_indices);
 }
 
+template <class C, class... Ps>
+struct size_checker : public std::false_type
+{
+};
+
+template <class T, std::size_t N, class... Ps>
+struct size_checker<T[N], Ps...> : public std::bool_constant<N == sizeof...(Ps)>
+{
+};
+
+template <class T, std::size_t N, class... Ps>
+struct size_checker<std::array<T, N>, Ps...> : public std::bool_constant<N == sizeof...(Ps)>
+{
+};
+
+template <class... Ts, class... Ps>
+struct size_checker<std::tuple<Ts...>, Ps...> : public std::bool_constant<sizeof...(Ts) == sizeof...(Ps)>
+{
+};
+
 } // namespace detail
 
 template <class C, class... Ps>
 constexpr auto make_poly(const C &coeffs, PowersList<Ps...>) noexcept
 {
-    static_assert(std::tuple_size_v<C> == sizeof...(Ps));
+    static_assert(detail::size_checker<C, Ps...>::value, "Wrong number of coefficients to make_poly");
     constexpr auto inds_and_powers = unique_and_sorted(PowersList<Ps...>{});
     constexpr auto mapped_indices = inds_and_powers.first;
     constexpr auto final_powers = inds_and_powers.second;
@@ -234,28 +272,10 @@ constexpr auto operator*(const Polynomial<T, Ps...> &p, const Polynomial<U, Qs..
     return make_poly(coeffs, PowersList<Ps...>{} * PowersList<Qs...>{});
 }
 
-namespace detail
-{
-
-template <class T, std::size_t N, std::size_t... Is, unsigned... As, class... Ps>
-constexpr auto partial_impl(
-    const std::array<T, N> &coeffs, std::index_sequence<Is...>, std::integer_sequence<unsigned, As...>,
-    PowersList<Ps...>) noexcept
-{
-    const auto new_coeffs = std::array{(coeffs[Is] * As)...};
-    return make_poly(new_coeffs, PowersList<Ps...>{});
-}
-
-} // namespace detail
-
 template <std::size_t I, class T, class... Ps>
 constexpr auto partial(const Polynomial<T, Ps...> &p) noexcept
 {
-    constexpr auto tup = partials_with_multipliers<I>(PowersList<Ps...>{});
-    constexpr auto indices = std::get<0>(tup);
-    constexpr auto constants = std::get<1>(tup);
-    constexpr auto powers = std::get<2>(tup);
-    return detail::partial_impl(p.coeffs(), indices, constants, powers);
+    return p.template partial<I>();
 }
 
 } // namespace Polynomials
