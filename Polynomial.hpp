@@ -23,6 +23,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "Powers.hpp"
 
 #include <array>
+#include <type_traits>
 #include <utility>
 
 namespace Polynomials
@@ -58,6 +59,7 @@ constexpr T eval_impl(
 template <class T, class... Ps>
 class Polynomial
 {
+    static_assert(std::is_arithmetic_v<T>);
     std::array<T, sizeof...(Ps)> m_coeffs;
 
     constexpr Polynomial(const std::array<T, sizeof...(Ps)> &cs) noexcept : m_coeffs(cs) {}
@@ -83,6 +85,29 @@ class Polynomial
             result.m_coeffs[i] = m_coeffs[i] + other.m_coeffs[i];
         }
         return result;
+    }
+
+    template <class U>
+    constexpr std::enable_if_t<std::is_arithmetic_v<U>, Polynomial<std::common_type_t<T, U>, Ps...>>
+    operator*(U x) const noexcept
+    {
+        Polynomial<std::common_type_t<T, U>, Ps...> result;
+        for (unsigned i = 0; i < sizeof...(Ps); ++i)
+        {
+            result.m_coeffs[i] = m_coeffs[i] * x;
+        }
+        return result;
+    }
+
+    template <class U>
+    constexpr std::enable_if_t<std::is_arithmetic_v<U>, Polynomial<T, Ps...>>&
+    operator*=(U x)
+    {
+        for (unsigned i = 0; i < sizeof...(Ps); ++i)
+        {
+            m_coeffs[i] *= x;
+        }
+        return *this;
     }
 
     constexpr Polynomial<T, Ps...> &operator+=(const Polynomial<T, Ps...> &other) noexcept
