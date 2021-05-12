@@ -7,6 +7,14 @@ using Polynomials::PowersList;
 
 TEST_CASE("Construct a polynomial with coefficient array")
 {
+    SUBCASE("Only a single coefficient")
+    {
+        constexpr auto powers = PowersList<Powers<0>>{};
+        constexpr auto coeffs = std::array<double, 1>{1.0};
+        constexpr auto poly = make_poly(coeffs, powers);
+        REQUIRE(poly.coeffs()[0] == 1.0);
+    }
+
     SUBCASE("Single-variable polynomial, powers are sorted, no duplicates")
     {
         constexpr auto powers = PowersList<Powers<0>, Powers<1>, Powers<2>, Powers<3>>{};
